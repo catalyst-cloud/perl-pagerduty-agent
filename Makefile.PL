@@ -37,14 +37,14 @@ WriteMakefile1(
             url     => 'http://search.cpan.org/perldoc?CPAN::Meta::Spec',
         },
 
-        #homepage    => 'https://github.com/getsentry/perl-raven',
-        #resources   => {
-        #    repository => {
-        #        type => 'git',
-        #        url  => 'git@github.com:getsentry/perl-raven.git',
-        #        web  => 'https://github.com/getsentry/perl-raven',
-        #    },
-        #},
+        homepage    => 'https://github.com/querry43/perl-pagerduty-agent',
+        resources   => {
+            repository => {
+                type => 'git',
+                url  => 'git@github.com:querry43/perl-pagerduty-agent.git',
+                web  => 'https://github.com/querry43/perl-pagerduty-agent',
+            },
+        },
     },
 );
 
