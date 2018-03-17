@@ -1,6 +1,8 @@
 PagerDuty::Agent version 0.01
 
-PagerDuty::Agent is a module for submitting events to PagerDuty.
+[![Build status](https://img.shields.io/travis/querry43/perl-pagerduty-agent.svg)](https://travis-ci.org/querry43/perl-pagerduty-agent)
+[![License](https://img.shields.io/github/license/querry43/perl-pagerduty-agent.svg)](LICENSE)
+[![CPAN](https://img.shields.io/cpan/v/PagerDuty-Agent.svg)](https://metacpan.org/pod/PagerDuty::Agent)
 
 SYNOPSIS
 
