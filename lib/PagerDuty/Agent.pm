@@ -14,6 +14,8 @@ use JSON;
 use LWP::UserAgent;
 use Sys::Hostname;
 use Time::Piece;
+use Time::HiRes qw/ time /;
+use HTTP::Status qw/ is_client_error /;
 
 =head1 NAME
 
@@ -73,10 +75,15 @@ Only version 2 is supported.
 
 =cut
 
-has [qw/ post_url routing_key /] => (
+has post_url => (
     is       => 'ro',
     isa      => Str,
     required => 1,
+);
+
+has routing_key => (
+    is       => 'rw',
+    isa      => Str,
 );
 
 has api_version => (
@@ -89,6 +96,11 @@ has timeout => (
     is      => 'ro',
     isa     => Int,
     default => 5,
+);
+
+has spool => (
+    is  => 'ro',
+    isa => Str,
 );
 
 has json_serializer => (
@@ -112,8 +124,14 @@ has valid_severities => (
 around BUILDARGS => sub {
     my ($orig, $class, %args) = @_;
 
-    my $routing_key = $args{routing_key}
-        or die "must pass routing_key\n";
+    my $spool = delete($args{spool});
+
+    my $routing_key = delete($args{routing_key});
+    # If the spool dir is defined, we might be flushing the submissions,
+    # in which case the routing_key is in the json to submit.
+    if (! defined $spool && ! defined $routing_key) {
+        die "must pass routing_key\n";
+    };
 
     delete($args{routing_key});
 
@@ -128,12 +146,13 @@ around BUILDARGS => sub {
     my $ua_obj = delete($args{ua_obj});
 
     return $class->$orig(
-        routing_key => $routing_key,
+        (defined($routing_key) ? (routing_key => $routing_key) : ()),
         post_url => $post_url,
 
         (defined($api_version) ? (api_version => $api_version) : ()),
         (defined($timeout) ? (timeout => $timeout) : ()),
         (defined($ua_obj) ? (ua_obj => $ua_obj) : ()),
+        (defined($spool) ? (spool => $spool) : ()),
     );
 };
 
@@ -237,7 +256,7 @@ sub trigger_event {
     @params = (summary => $params[0])
         if scalar(@params) == 1;
 
-    return $self->_post_event(
+    return $self->_submit_event(
         $self->_format_pd_cef('trigger', @params),
     );
 }
@@ -258,7 +277,7 @@ sub acknowledge_event {
     @params = (summary => 'no reason given', dedup_key => $params[0])
         if scalar(@params) == 1;
 
-    return $self->_post_event(
+    return $self->_submit_event(
         $self->_format_pd_cef('acknowledge', @params),
     );
 }
@@ -276,12 +295,12 @@ sub resolve_event {
     @params = (summary => 'no reason given', dedup_key => $params[0])
         if scalar(@params) == 1;
 
-    return $self->_post_event(
+    return $self->_submit_event(
         $self->_format_pd_cef('resolve', @params),
     );
 }
 
-sub _post_event {
+sub _submit_event {
     my ($self, $event) = @_;
 
     unless ($event) {
@@ -290,8 +309,96 @@ sub _post_event {
         return;
     }
 
-    my ($response, $response_code, $response_content);
+    my $json = $self->json_serializer()->encode($event);
 
+    my $result = $self->_post_event($json);
+
+    if (defined $result && $result eq 'defer') {
+        $result = undef;
+        my $spool_file = $self->spool() . "/pd-" . time() . ".txt";
+
+        my $fd;
+        unless (open($fd, ">", $spool_file)) {
+            warn "Failed to open $spool_file for writing: $!";
+            return;
+        }
+
+        print $fd $json;
+        close($fd);
+    }
+
+    return $result;
+}
+
+sub flush {
+    my ($self) = @_;
+
+    my $dh;
+    unless (opendir($dh, $self->spool())) {
+        die "Failed to open " . $self->spool() . " directory: $!";
+    }
+
+    my %status = (
+        count => {
+            deferred  => 0,
+            submitted => 0,
+            errors    => 0,
+        },
+        dedup_keys => [],
+    );
+    while (my $file = readdir($dh)) {
+        ($file) = $file =~ /^(pd-\d+\.\d+.txt)$/;
+        next unless defined $file;
+        $file = $self->spool() . "/$file";
+
+        my $result = $self->_submit_file($file);
+        if (defined $result) {
+            if ($result eq 'defer') {
+                $status{count}{deferred} += 1;
+            } else {
+                $status{count}{submitted} += 1;
+                push @{ $status{dedup_keys} }, $result;
+            }
+        } else {
+            $status{count}{errors} += 1;
+        }
+    }
+
+    close $dh;
+    return \%status;
+}
+
+sub _submit_file {
+    my ($self, $file) = @_;
+
+    my $fh;
+    unless (open($fh, "<", $file)) {
+        die "Failed to open $file: $!";
+    }
+
+    my $json = "";
+    while (<$fh>) {
+      $json .= $_;
+    }
+
+    close $fh;
+
+    if (! defined $self->routing_key()) {
+        $self->routing_key($self->json_serializer()->decode($json)->{routing_key});
+    }
+
+    my $result = $self->_post_event($json);
+    if (! defined $result || (defined $result && $result ne 'defer')) {
+        unlink $file;
+    }
+
+    return $result;
+}
+
+sub _post_event {
+    my ($self, $json) = @_;
+
+    my ($response, $response_code, $response_content);
     eval {
         $self->ua_obj()->timeout($self->timeout());
 
@@ -299,7 +406,7 @@ sub _post_event {
             $self->post_url(),
             'Content-Type'  => 'application/json',
             'Authorization' => 'Token token='.$self->routing_key(),
-            Content         => $self->json_serializer()->encode($event),
+            Content         => $json,
         );
         $response = $self->ua_obj()->request($request);
 
@@ -313,15 +420,28 @@ sub _post_event {
         return $self->json_serializer()->decode($response_content)->{dedup_key};
     } else {
         if ($response) {
-            my $error_message;
-            eval {
-                $error_message = $self->json_serializer()->decode($response_content)->{error}->{message};
-            };
+            if ($self->spool()) {
+                if ($response->code == '429') {
+                    $EVAL_ERROR = "Submission of event to PagerDuty deferred to rate limiting. Response: " . $response->content;
+                    return 'defer';
+                } elsif (is_client_error($response->code)) {
+                    $EVAL_ERROR = "Submission of event to PagerDuty rejected. Response: " . $response->content;
+                    return;
+                } else {
+                    $EVAL_ERROR = "Submission of event to PagerDuty deferred due to network/server issue. Response: " . $response->content;
+                    return 'defer';
+                }
+            } else {
+                my $error_message;
+                eval {
+                    $error_message = $self->json_serializer()->decode($response_content)->{error}->{message};
+                };
 
-            $error_message = "Unable to parse response from PagerDuty: $EVAL_ERROR"
-                if $EVAL_ERROR;
+                $error_message = "Unable to parse response from PagerDuty: $EVAL_ERROR"
+                    if $EVAL_ERROR;
 
-            $EVAL_ERROR = $error_message;
+                $EVAL_ERROR = $error_message;
+            }
         }
 
         return;
@@ -376,6 +496,9 @@ sub _format_pd_cef {
     } else {
         return;
     }
+
+    die "must set routing_key\n"
+        unless defined $self->routing_key();
 
     $self->_validate_severity($params{severity})
         if defined($params{severity});

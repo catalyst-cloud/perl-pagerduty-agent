@@ -43,5 +43,6 @@ Perl 5.8 or later.
 COPYRIGHT AND LICENSE
 
 Copyright (C) 2017 by comScore, Inc
+Portions Copyright (C) 2019, Catalyst Cloud Limited
 
 The full text of this license can be found in the LICENSE file included with this module.

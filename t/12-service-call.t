@@ -7,6 +7,7 @@ use HTTP::Response;
 use PagerDuty::Agent;
 use Test::LWP::UserAgent;
 use Test::More;
+use File::Temp qw/ tempdir /;
 
 my $ua = Test::LWP::UserAgent->new();
 $ua->map_response(
@@ -95,6 +96,149 @@ subtest 'resolve' => sub {
     $agent->resolve_event(summary => 'HELO', dedup_key => 'my dedup_key');
     $request = $ua->last_http_request_sent();
     is($event->{dedup_key}, 'my dedup_key');
+};
+
+my $ua_defer = Test::LWP::UserAgent->new();
+$ua_defer->map_response(
+    qr//,
+    HTTP::Response->new(
+        '429',
+        undef,
+        undef,
+        'Slow down buddy'
+    ),
+);
+
+my $spool_dir = tempdir( CLEANUP => 1 );
+
+subtest 'trigger_defer' => sub {
+    my $agent = PagerDuty::Agent->new(
+        routing_key => '123',
+        ua_obj      => $ua_defer,
+        spool       => $spool_dir,
+    );
+
+    my $result = $agent->trigger_event('HELO');
+
+    is($result, undef);
+};
+
+subtest 'trigger_defer_again' => sub {
+    my $agent = PagerDuty::Agent->new(
+        ua_obj      => $ua_defer,
+        spool       => $spool_dir,
+    );
+
+    my $result = $agent->flush();
+
+    is($result->{count}{deferred}, 1);
+};
+
+subtest 'trigger_defer_enqueue' => sub {
+    my $agent = PagerDuty::Agent->new(
+        ua_obj      => $ua,
+        spool       => $spool_dir,
+    );
+
+    my $result = $agent->flush();
+
+    is($result->{count}{submitted}, 1);
+    is(@{ $result->{dedup_keys}}[0], 'my dedup_key');
+};
+
+my $ua_server_error = Test::LWP::UserAgent->new();
+$ua_server_error->map_response(
+    qr//,
+    HTTP::Response->new(
+        '500',
+        undef,
+        undef,
+        'A server error'
+    ),
+);
+
+subtest 'trigger_server_error' => sub {
+    my $agent = PagerDuty::Agent->new(
+        routing_key => '123',
+        ua_obj      => $ua_server_error,
+        spool       => $spool_dir,
+    );
+
+    my $result = $agent->trigger_event('HELO');
+
+    is($result, undef);
+};
+
+subtest 'trigger_server_error_again' => sub {
+    my $agent = PagerDuty::Agent->new(
+        ua_obj      => $ua_server_error,
+        spool       => $spool_dir,
+    );
+
+    my $result = $agent->flush();
+
+    is($result->{count}{deferred}, 1);
+};
+
+subtest 'trigger_server_error_enqueue' => sub {
+    my $agent = PagerDuty::Agent->new(
+        ua_obj      => $ua,
+        spool       => $spool_dir,
+    );
+
+    my $result = $agent->flush();
+
+    is($result->{count}{submitted}, 1);
+    is(@{ $result->{dedup_keys}}[0], 'my dedup_key');
+};
+
+my $ua_client_error = Test::LWP::UserAgent->new();
+$ua_client_error->map_response(
+    qr//,
+    HTTP::Response->new(
+        '404',
+        undef,
+        undef,
+        'A client error'
+    ),
+);
+
+subtest 'trigger_client_error' => sub {
+    my $agent = PagerDuty::Agent->new(
+        routing_key => '123',
+        ua_obj      => $ua_defer,
+        spool       => $spool_dir,
+    );
+
+    my $result = $agent->trigger_event('HELO');
+
+    is($result, undef);
+};
+
+subtest 'trigger_client_error_again' => sub {
+    my $agent = PagerDuty::Agent->new(
+        ua_obj      => $ua_client_error,
+        spool       => $spool_dir,
+    );
+
+    my $result = $agent->flush();
+
+    is($result->{count}{errors}, 1);
+};
+
+# Should be nothing left, as the spooled file should be removed on a client
+# error.
+subtest 'trigger_client_error_yet_again' => sub {
+    my $agent = PagerDuty::Agent->new(
+        ua_obj      => $ua_client_error,
+        spool       => $spool_dir,
+    );
+
+    my $result = $agent->flush();
+
+    is($result->{count}{errors}, 0);
+    is($result->{count}{submitted}, 0);
+    is($result->{count}{deferred}, 0);
 };
 
 done_testing();
