@@ -9,6 +9,7 @@ WriteMakefile1(
     LICENSE             => 'mit',
 
     PREREQ_PM           => {
+        'Data::Dump'                   => 0,
         'English'                      => 0,
         'HTTP::Request::Common'        => 0,
         'JSON'                         => 0,

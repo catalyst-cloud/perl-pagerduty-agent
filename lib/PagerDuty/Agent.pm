@@ -3,6 +3,7 @@ package PagerDuty::Agent;
 use 5.010;
 use strict;
 use warnings;
+use Data::Dump 'dump';
 use Moo;
 use MooX::Types::MooseLike::Base qw/ ArrayRef Int Str /;
 
@@ -37,6 +38,8 @@ Version 0.02
 
     print "Event successfully resolved\n"
       if $agent->resolve_event( $dedup_key );
+  } else {
+    warn "Failed to submit event: $@\n";
   }
 
   # additional context can be passed in
@@ -315,13 +318,13 @@ sub _post_event {
         if ($response) {
             my $error_message;
             eval {
-                $error_message = $self->json_serializer()->decode($response_content)->{error}->{message};
+                $error_message =  dump(
+                    $self->json_serializer()->decode($response_content)
+                );
             };
 
-            $error_message = "Unable to parse response from PagerDuty: $EVAL_ERROR"
-                if $EVAL_ERROR;
-
-            $EVAL_ERROR = $error_message;
+            $EVAL_ERROR = "Unable to parse response from PagerDuty: $error_message"
+                if $error_message;
         }
 
         return;

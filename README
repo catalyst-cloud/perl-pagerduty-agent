@@ -18,6 +18,8 @@ SYNOPSIS
 
     print "Event successfully resolved\n"
       if $agent->resolve_event( $dedup_key );
+  } else {
+    warn "Failed to submit event: $@\n";
   }
 
   # additional context can be passed in
