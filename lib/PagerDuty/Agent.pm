@@ -1,12 +1,12 @@
 package PagerDuty::Agent;
 
-use 5.008;
+use 5.010;
 use strict;
 use warnings;
 use Moo;
 use MooX::Types::MooseLike::Base qw/ ArrayRef Int Str /;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 use English '-no_match_vars';
 use HTTP::Request::Common 'POST';
@@ -21,7 +21,7 @@ PagerDuty::Agent - A perl PagerDuty client
 
 =head1 VERSION
 
-Version 0.01
+Version 0.02
 
 =head1 SYNOPSIS
 
@@ -409,7 +409,7 @@ L<WebService::PagerDuty> - Another module implementing most of the PagerDuty Eve
 
 =head1 LICENSE
 
-Copyright (C) 2017 by comScore, Inc
+Copyright (C) 2019 by Matt Harrington
 
 The full text of this license can be found in the LICENSE file included with this module.
 

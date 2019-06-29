@@ -1,4 +1,4 @@
-PagerDuty::Agent version 0.01
+PagerDuty::Agent version 0.02
 
 [![Build status](https://img.shields.io/travis/querry43/perl-pagerduty-agent.svg)](https://travis-ci.org/querry43/perl-pagerduty-agent)
 [![License](https://img.shields.io/github/license/querry43/perl-pagerduty-agent.svg)](LICENSE)
@@ -38,10 +38,10 @@ To install this module type the following:
 
 DEPENDENCIES
 
-Perl 5.8 or later.
+Perl 5.10 or later.
 
 COPYRIGHT AND LICENSE
 
-Copyright (C) 2017 by comScore, Inc
+Copyright (C) 2019 by Matt Harrington
 
 The full text of this license can be found in the LICENSE file included with this module.
