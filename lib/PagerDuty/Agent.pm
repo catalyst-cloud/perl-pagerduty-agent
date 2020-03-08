@@ -259,9 +259,17 @@ sub trigger_event {
     @params = (summary => $params[0])
         if scalar(@params) == 1;
 
-    return $self->_submit_event(
-        $self->_format_pd_cef('trigger', @params),
-    );
+    my $result;
+    eval {
+        $result = $self->_submit_event(
+            $self->_format_pd_cef('trigger', @params),
+        );
+    };
+    if ($@) {
+        warn $@;
+        $EVAL_ERROR = $@;
+    }
+    return $result;
 }
 
 =head2 my $success = $agent->acknowledge_event( $dedup_key or %event )
@@ -280,9 +288,17 @@ sub acknowledge_event {
     @params = (summary => 'no reason given', dedup_key => $params[0])
         if scalar(@params) == 1;
 
-    return $self->_submit_event(
-        $self->_format_pd_cef('acknowledge', @params),
-    );
+    my $result;
+    eval {
+        $result =  $self->_submit_event(
+            $self->_format_pd_cef('acknowledge', @params),
+        );
+    };
+    if ($@) {
+        warn $@;
+        $EVAL_ERROR = $@;
+    }
+    return $result;
 }
 
 =head2 my $success = $agent->resolve_event( $dedup_key or %event )
@@ -298,9 +314,17 @@ sub resolve_event {
     @params = (summary => 'no reason given', dedup_key => $params[0])
         if scalar(@params) == 1;
 
-    return $self->_submit_event(
-        $self->_format_pd_cef('resolve', @params),
-    );
+    my $result;
+    eval {
+        $result = $self->_submit_event(
+            $self->_format_pd_cef('resolve', @params),
+        );
+    };
+    if ($@) {
+        warn $@;
+        $EVAL_ERROR = $@;
+    }
+    return $result;
 }
 
 sub _submit_event {

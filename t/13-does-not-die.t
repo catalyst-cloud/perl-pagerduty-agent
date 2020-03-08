@@ -12,7 +12,7 @@ sub json_serializer { die "something is super wrong" }
 
 package main;
 
-use Test::More;
+use Test::More tests => 3;
 use English '-no_match_vars';
 
 my $failing_agent = FailingAgent->new(routing_key => '123');
