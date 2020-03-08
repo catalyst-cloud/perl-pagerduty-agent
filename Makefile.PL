@@ -4,11 +4,12 @@ WriteMakefile1(
     NAME                => 'PagerDuty::Agent',
     ABSTRACT_FROM       => 'lib/PagerDuty/Agent.pm',
     VERSION_FROM        => 'lib/PagerDuty/Agent.pm',
-    MIN_PERL_VERSION    => '5.008',
-    AUTHOR              => 'comScore, Inc',
+    MIN_PERL_VERSION    => '5.010',
+    AUTHOR              => 'Matt Harrington',
     LICENSE             => 'mit',
 
     PREREQ_PM           => {
+        'Data::Dump'                   => 0,
         'English'                      => 0,
         'HTTP::Request::Common'        => 0,
         'JSON'                         => 0,

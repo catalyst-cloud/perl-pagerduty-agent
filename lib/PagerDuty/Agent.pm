@@ -1,12 +1,13 @@
 package PagerDuty::Agent;
 
-use 5.008;
+use 5.010;
 use strict;
 use warnings;
+use Data::Dump 'dump';
 use Moo;
 use MooX::Types::MooseLike::Base qw/ ArrayRef Int Str /;
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 use English '-no_match_vars';
 use HTTP::Request::Common 'POST';
@@ -23,7 +24,7 @@ PagerDuty::Agent - A perl PagerDuty client
 
 =head1 VERSION
 
-Version 0.01
+Version 0.02
 
 =head1 SYNOPSIS
 
@@ -39,6 +40,8 @@ Version 0.01
 
     print "Event successfully resolved\n"
       if $agent->resolve_event( $dedup_key );
+  } else {
+    warn "Failed to submit event: $@\n";
   }
 
   # additional context can be passed in
@@ -434,7 +437,9 @@ sub _post_event {
             } else {
                 my $error_message;
                 eval {
-                    $error_message = $self->json_serializer()->decode($response_content)->{error}->{message};
+                    $error_message = dump(
+                        $self->json_serializer()->decode($response_content)
+                    );
                 };
 
                 $error_message = "Unable to parse response from PagerDuty: $EVAL_ERROR"
@@ -532,7 +537,7 @@ L<WebService::PagerDuty> - Another module implementing most of the PagerDuty Eve
 
 =head1 LICENSE
 
-Copyright (C) 2017 by comScore, Inc
+Copyright (C) 2019 by Matt Harrington
 
 The full text of this license can be found in the LICENSE file included with this module.
 
