@@ -371,23 +371,29 @@ sub flush {
             submitted => 0,
             errors    => 0,
         },
-        dedup_keys => [],
+        dedup_keys => {},
     );
     while (my $file = readdir($dh)) {
         ($file) = $file =~ /^(pd-\d+\.\d+.txt)$/;
         next unless defined $file;
         $file = $self->spool() . "/$file";
 
-        my $result = $self->_submit_file($file);
+        my ($result, $dedup_key) = $self->_submit_file($file);
         if (defined $result) {
             if ($result eq 'defer') {
                 $status{count}{deferred} += 1;
+
+                $status{dedup_keys}{$dedup_key} = 'defer'
+                    if defined $dedup_key;
             } else {
                 $status{count}{submitted} += 1;
-                push @{ $status{dedup_keys} }, $result;
+                $status{dedup_keys}{$result} = 'submitted';
             }
         } else {
             $status{count}{errors} += 1;
+
+            $status{dedup_keys}{$dedup_key} = $@
+                if defined $dedup_key;
         }
     }
 
@@ -419,7 +425,10 @@ sub _submit_file {
         unlink $file;
     }
 
-    return $result;
+    # Peek inside the json just incase there is a dedup key we can return to
+    # people, but return it has second parameter so we don't break the API
+    # for the normal trigger/acknowledge/resolve methods.
+    return $result, $self->json_serializer()->decode($json)->{dedup_key};
 }
 
 sub _post_event {
