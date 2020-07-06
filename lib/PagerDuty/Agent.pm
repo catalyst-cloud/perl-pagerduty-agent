@@ -426,7 +426,7 @@ sub _submit_file {
     }
 
     # Peek inside the json just incase there is a dedup key we can return to
-    # people, but return it has second parameter so we don't break the API
+    # people, but return it as second parameter so we don't break the API
     # for the normal trigger/acknowledge/resolve methods.
     return $result, $self->json_serializer()->decode($json)->{dedup_key};
 }
