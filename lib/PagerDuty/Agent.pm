@@ -128,6 +128,10 @@ around BUILDARGS => sub {
     my ($orig, $class, %args) = @_;
 
     my $spool = delete($args{spool});
+    die "spool directory doesn't exist: $spool"
+        if $spool && ! -d $spool;
+    die "spool directory not writable: $spool"
+        if $spool && ! -w $spool;
 
     my $routing_key = delete($args{routing_key});
     # If the spool dir is defined, we might be flushing the submissions,
@@ -346,7 +350,8 @@ sub _submit_event {
 
         my $fd;
         unless (open($fd, ">", $spool_file)) {
-            warn "Failed to open $spool_file for writing: $!";
+            $EVAL_ERROR = "Failed to open $spool_file for writing: $!";
+            warn "$EVAL_ERROR\n";
             return;
         }
 
