@@ -7,7 +7,7 @@ use Data::Dump 'dump';
 use Moo;
 use MooX::Types::MooseLike::Base qw/ ArrayRef Int Str /;
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 use English '-no_match_vars';
 use HTTP::Request::Common 'POST';
