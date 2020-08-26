@@ -377,7 +377,7 @@ sub flush {
         },
         dedup_keys => {},
     );
-    while (my $file = readdir($dh)) {
+    for my $file (sort readdir($dh)) {
         ($file) = $file =~ /^(pd-\d+\.\d+.txt)$/;
         next unless defined $file;
         $file = $self->spool() . "/$file";
