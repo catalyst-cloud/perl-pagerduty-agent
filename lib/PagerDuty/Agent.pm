@@ -74,6 +74,15 @@ Do not wait longer than this number of seconds when attempting to send an event.
 
 Only version 2 is supported.
 
+=item C<< spool => '/var/spool/pagerduty' >>
+
+PagerDuty may respond to a submission specifying that the the submission
+should be deferred and submitted again later. If spool is passed in, then
+submissions will be spooled there. They can later be resubmitted be
+calling the flush method.
+
+By default submissions aren't spooled.
+
 =back
 
 =cut
@@ -167,12 +176,20 @@ around BUILDARGS => sub {
 
 These methods are designed to create and manipulate events.
 
-=head2 my $dedup_key = $agent->trigger_event( $event_summary or %event )
+=head2 my $result = $agent->trigger_event( $event_summary or %event )
 
 Trigger an event.  The simple form accepts an $event_summary string with textual
 details of the event.  The long form accepts additional event context.
 
-When successful, returns the dedup_key.  On error, returns undef and sets $@.
+=over
+
+=item * On success, returns the dedup_key.
+
+=item * On error, returns undef and sets $@.
+
+=item * On defer, returns string 'defer'.
+
+=back
 
 Event parameters when using the long form:
 
@@ -276,13 +293,21 @@ sub trigger_event {
     return $result;
 }
 
-=head2 my $success = $agent->acknowledge_event( $dedup_key or %event )
+=head2 my $result = $agent->acknowledge_event( $dedup_key or %event )
 
 Acknowledge an existing event.  The simple form accepts a $dedup_key.  The long
 form accepts the same event parameters as C<< trigger_event >> except C<< summary >>
 is interpreted as the reason for acknowledging and C<< dedup_key >> is required.
 
-When successful, returns the dedup_key.  On error, returns undef and sets $@.
+=over
+
+=item * On success, returns the dedup_key.
+
+=item * On error, returns undef and sets $@.
+
+=item * On defer, returns string 'defer'.
+
+=back
 
 =cut
 
@@ -305,7 +330,7 @@ sub acknowledge_event {
     return $result;
 }
 
-=head2 my $success = $agent->resolve_event( $dedup_key or %event )
+=head2 my $result = $agent->resolve_event( $dedup_key or %event )
 
 This accepts the same parameters as C<< acknowledge_event >> and returns the
 same values.
@@ -361,6 +386,28 @@ sub _submit_event {
     return $result;
 }
 
+=head2 my $result = $agent->flush()
+
+This accepts no parameters, if any submissions are spooled then they
+are submitted to PagerDuty in the order they were spooled.
+
+The result is a hash which returns a count of the results and the
+for each submission the dedup_key and status. For example:
+
+    $result = {
+        'dedup_keys' => [
+            [ '#38184', 'submitted' ],
+            [ '#38185', 'submitted' ],
+        ],
+        'count' => {
+            'errors' => 0,
+            'submitted' => 1,
+            'deferred' => 0
+        }
+    };
+
+=cut
+
 sub flush {
     my ($self) = @_;
 
@@ -375,7 +422,7 @@ sub flush {
             submitted => 0,
             errors    => 0,
         },
-        dedup_keys => {},
+        dedup_keys => [],
     );
     for my $file (sort readdir($dh)) {
         ($file) = $file =~ /^(pd-\d+\.\d+.txt)$/;
@@ -387,16 +434,16 @@ sub flush {
             if ($result eq 'defer') {
                 $status{count}{deferred} += 1;
 
-                $status{dedup_keys}{$dedup_key} = 'defer'
+                push @{ $status{dedup_keys} }, [$dedup_key, 'defer']
                     if defined $dedup_key;
             } else {
                 $status{count}{submitted} += 1;
-                $status{dedup_keys}{$result} = 'submitted';
+                push @{ $status{dedup_keys} }, [$result, 'submitted']
             }
         } else {
             $status{count}{errors} += 1;
 
-            $status{dedup_keys}{$dedup_key} = $@
+            push @{ $status{dedup_keys} }, [$dedup_key, $@]
                 if defined $dedup_key;
         }
     }
