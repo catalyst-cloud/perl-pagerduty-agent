@@ -345,7 +345,6 @@ sub _submit_event {
     my $result = $self->_post_event($json);
 
     if (defined $result && $result eq 'defer') {
-        $result = undef;
         my $spool_file = $self->spool() . "/pd-" . time() . ".txt";
 
         my $fd;
