@@ -198,41 +198,30 @@ my $ua_client_error = Test::LWP::UserAgent->new();
 $ua_client_error->map_response(
     qr//,
     HTTP::Response->new(
-        '404',
+        '400',
         undef,
         undef,
-        'A client error'
+        'Bad request'
     ),
 );
 
 subtest 'trigger_client_error' => sub {
     my $agent = PagerDuty::Agent->new(
         routing_key => '123',
-        ua_obj      => $ua_defer,
+        ua_obj      => $ua_client_error,
         spool       => $spool_dir,
     );
 
     my $result = $agent->trigger_event('HELO');
 
-    is($result, 'defer');
-};
-
-subtest 'trigger_client_error_again' => sub {
-    my $agent = PagerDuty::Agent->new(
-        ua_obj      => $ua_client_error,
-        spool       => $spool_dir,
-    );
-
-    my $result = $agent->flush();
-
-    is($result->{count}{errors}, 1);
+    is($result, undef);
 };
 
 # Should be nothing left, as the spooled file should be removed on a client
 # error.
 subtest 'trigger_client_error_yet_again' => sub {
     my $agent = PagerDuty::Agent->new(
-        ua_obj      => $ua_client_error,
+        ua_obj      => $ua,
         spool       => $spool_dir,
     );
 
