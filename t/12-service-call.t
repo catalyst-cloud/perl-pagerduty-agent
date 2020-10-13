@@ -120,7 +120,7 @@ subtest 'trigger_defer' => sub {
 
     my $result = $agent->trigger_event('HELO');
 
-    is($result, undef);
+    is($result, 'defer');
 };
 
 subtest 'trigger_defer_again' => sub {
@@ -143,7 +143,8 @@ subtest 'trigger_defer_enqueue' => sub {
     my $result = $agent->flush();
 
     is($result->{count}{submitted}, 1);
-    is($result->{dedup_keys}{'my dedup_key'}, 'submitted');
+    is($result->{dedup_keys}[0][0], 'my dedup_key');
+    is($result->{dedup_keys}[0][1], 'submitted');
 };
 
 my $ua_server_error = Test::LWP::UserAgent->new();
@@ -166,7 +167,7 @@ subtest 'trigger_server_error' => sub {
 
     my $result = $agent->trigger_event('HELO');
 
-    is($result, undef);
+    is($result, 'defer');
 };
 
 subtest 'trigger_server_error_again' => sub {
@@ -189,7 +190,8 @@ subtest 'trigger_server_error_enqueue' => sub {
     my $result = $agent->flush();
 
     is($result->{count}{submitted}, 1);
-    is($result->{dedup_keys}{'my dedup_key'}, 'submitted');
+    is($result->{dedup_keys}[0][0], 'my dedup_key');
+    is($result->{dedup_keys}[0][1], 'submitted');
 };
 
 my $ua_client_error = Test::LWP::UserAgent->new();
@@ -212,7 +214,7 @@ subtest 'trigger_client_error' => sub {
 
     my $result = $agent->trigger_event('HELO');
 
-    is($result, undef);
+    is($result, 'defer');
 };
 
 subtest 'trigger_client_error_again' => sub {
